@@ -226,7 +226,7 @@ function lastByName(name, exclude) {
   return null;
 }
 function newRec(w, s, sl) {
-  const p = prevRec(w, s, sl.id), src = p ? p.rec : null;
+  const p = prevRec(w, s, sl.id), src = p ? p.rec : (sl.seed ? {vals: sl.seed} : null);
   const len = Math.max(sl.sets, src ? src.vals.length : 0);
   const vals = [];
   for (let i = 0; i < len; i++) {
@@ -263,6 +263,14 @@ function fillVals(r, w, s, id) {
 const app = document.getElementById('app');
 let view = {s: null};
 
+const wt = w => w === 0 ? '맨몸' : String(w);
+let KG_CACHE = null;
+function kgOpts(sel) {   // 0(맨몸) ~ 300kg, 0.5kg 단위
+  if (!KG_CACHE) { KG_CACHE = []; for (let i = 0; i <= 600; i++) KG_CACHE.push(i / 2); }
+  let h = '';
+  for (const v of KG_CACHE) h += `<option value="${v}"${v === sel ? ' selected' : ''}>${wt(v)}</option>`;
+  return h;
+}
 function opts(from, to, sel, suffix = '') {
   let h = '';
   for (let i = from; i <= to; i++) h += `<option value="${i}"${i === sel ? ' selected' : ''}>${i}${suffix}</option>`;
@@ -290,7 +298,7 @@ function renderHome() {
       <div class="t">${s >= 4 ? (s - 3) + '회차' : (s + 1) + '회차'}</div>
       <div class="lbl">${esc(ses.label)}</div>
       <div class="names">${names.length ? esc(names.join(' · ')) : '종목 없음'}</div>
-      <span class="badge ${l ? 'done' : ''}">${l ? '✓ 기록 ' + l.date : '미기록'}</span>
+      <span class="badge ${l ? 'done' : ''}">${l ? '✓ 기록' + (l.date ? ' ' + l.date : '됨') : '미기록'}</span>
     </button>`;
   }
   h += `</div>`;
@@ -334,10 +342,10 @@ function card(w, s, l, id) {
       const pv = cmp && i < pr.sets ? pr.vals[i] : null;
       const kc = pv && !pv.skip ? (v.w > pv.w ? 'up' : v.w < pv.w ? 'down' : '') : '';
       const rc = pv && !pv.skip ? (v.r > pv.r ? 'up' : v.r < pv.r ? 'down' : '') : '';
-      const prevTxt = !cmp ? '' : !pv ? '지난 –' : pv.skip ? '지난 생략' : `지난 ${pv.w}×${pv.r}`;
+      const prevTxt = !cmp ? '' : !pv ? '지난 –' : pv.skip ? '지난 생략' : `지난 ${wt(pv.w)}×${pv.r}`;
       h += `<div class="set ${v.skip ? 'skipped' : ''}">
         <span class="no">${i + 1}</span>
-        <label class="val"><select class="kg ${v.skip ? '' : kc}" data-a="w" data-id="${id}" data-i="${i}">${opts(1, 300, v.w)}</select>kg</label>
+        <label class="val"><select class="kg ${v.skip ? '' : kc}" data-a="w" data-id="${id}" data-i="${i}">${kgOpts(v.w)}</select>kg</label>
         <label class="val"><select class="rp ${v.skip ? '' : rc}" data-a="r" data-id="${id}" data-i="${i}">${opts(1, 50, v.r)}</select>회</label>
         <span class="prev">${prevTxt}</span>
         <button class="skipbtn ${v.skip ? 'on' : ''}" data-a="skipset" data-id="${id}" data-i="${i}">${v.skip ? '생략됨' : '생략'}</button>
@@ -419,7 +427,7 @@ app.addEventListener('change', e => {
   const el = e.target, a = el.dataset.a; if (!a || a === 'label') return;
   const {w, s, l} = cur(); if (!l) return;
   const id = el.dataset.id, r = l.ex[id]; if (!r) return;
-  if (a === 'w' || a === 'r') r.vals[+el.dataset.i][a] = +el.value;
+  if (a === 'w' || a === 'r') r.vals[+el.dataset.i][a] = parseFloat(el.value);
   if (a === 'sets') { r.sets = +el.value; fillVals(r, w, s, id); syncTemplate(w, s); }
   if (a === 'name') {
     r.name = el.value.trim();
@@ -472,7 +480,7 @@ document.getElementById('importFile').addEventListener('change', async e => {
 let stT = 4, stM = 'e1';
 const METRIC = {e1: '추정 1RM', top: '최고 무게', vol: '볼륨'};
 const e1rm = (w, r) => w * (1 + r / 30);   // Epley 공식
-const fmt = n => Math.round(n).toLocaleString();
+const fmt = n => (Math.round(n * 10) / 10).toLocaleString();
 
 function collect(type) {
   const sess = type === 2 ? BUSY : NORMAL;
@@ -486,18 +494,22 @@ function collect(type) {
         const r = l.ex[id]; if (!r || r.skip || !r.name.trim()) continue;
         const sets = r.vals.slice(0, r.sets).filter(v => !v.skip); if (!sets.length) continue;
         any = true;
+        const bw = sets.every(v => v.w === 0);   // 맨몸 종목은 횟수로 성장 판단
         let top = null, best = null, vol = 0;
         for (const v of sets) {
           vol += v.w * v.r;
           if (!top || v.w > top.w || (v.w === top.w && v.r > top.r)) top = v;
           if (!best || e1rm(v.w, v.r) > e1rm(best.w, best.r)) best = v;
         }
-        wv += vol;
+        if (!bw) wv += vol;
         const key = r.name.trim();
         let e = map.get(key);
         if (!e) { e = {name: key, s, ord: map.size, pts: []}; map.set(key, e); }
-        const pt = {wk: k, top: top.w, topR: top.r, e1: Math.round(e1rm(best.w, best.r)), vol,
-          sets: sets.map(v => `${v.w}×${v.r}`).join(', ')};
+        const pt = bw
+          ? {wk: k, unit: '회', top: Math.max(...sets.map(v => v.r)), e1: Math.max(...sets.map(v => v.r)),
+             vol: sets.reduce((a, v) => a + v.r, 0), sets: sets.map(v => `맨몸×${v.r}`).join(', ')}
+          : {wk: k, unit: 'kg', top: top.w, topR: top.r, e1: Math.round(e1rm(best.w, best.r)), vol,
+             sets: sets.map(v => `${v.w}×${v.r}`).join(', ')};
         const last = e.pts[e.pts.length - 1];
         if (last && last.wk === k) {   // 같은 주에 같은 종목을 두 번 했으면 합침
           last.vol += pt.vol; last.sets += ' / ' + pt.sets;
@@ -524,7 +536,8 @@ function trend(pts, m) {
 }
 
 function tipText(p, m) {
-  return `${p.wk}주차 · ${METRIC[m]} ${fmt(p[m])}kg · 세트 ${p.sets}`;
+  const label = p.unit === '회' ? (m === 'vol' ? '총 횟수' : '최고 횟수') : METRIC[m];
+  return `${p.wk}주차 · ${label} ${fmt(p[m])}${p.unit} · 세트 ${p.sets}`;
 }
 
 function lineChart(pts, m) {
@@ -611,7 +624,7 @@ function renderStats() {
     const pct = e.pts.length > 1 && p0[stM] ? Math.round((pn[stM] - p0[stM]) / p0[stM] * 100) : null;
     h += `<div class="panel chartbox">
       <div class="ph"><span class="exn">${esc(e.name)}</span><span class="chip ${t.k}">${t.t}</span></div>
-      <div class="big">${fmt(p0[stM])} → <b>${fmt(pn[stM])}kg</b>${pct !== null ? ` <span class="${pct > 0 ? 'cu' : pct < 0 ? 'cd' : ''}">(${pct > 0 ? '+' : ''}${pct}%)</span>` : ''}</div>
+      <div class="big">${fmt(p0[stM])} → <b>${fmt(pn[stM])}${pn.unit}</b>${pct !== null ? ` <span class="${pct > 0 ? 'cu' : pct < 0 ? 'cd' : ''}">(${pct > 0 ? '+' : ''}${pct}%)</span>` : ''}</div>
       ${lineChart(e.pts, stM)}
       <div class="readout">${esc(tipText(pn, stM))}</div>
       <details><summary>기록 표 보기</summary><div class="tw"><table>
