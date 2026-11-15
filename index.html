@@ -171,8 +171,16 @@ function blank() {
 function migrate(d) {
   while (d.sessions.length < N_SESS) d.sessions.push({label: '', slots: []});
   d.types = d.types || {};
+  // 완료 버튼이 생기기 전 기록(가져온 기록 등, 날짜 없음)은 생략 안 한 세트를 모두 '완료'로 간주
+  for (const w in d.logs) for (const s in d.logs[w]) {
+    const l = d.logs[w][s];
+    if (l.date || l.legacyDone) continue;
+    for (const id in l.ex) if (!l.ex[id].skip) l.ex[id].vals.forEach(v => { if (!v.skip) v.done = true; });
+    l.legacyDone = true;
+  }
   return d;
 }
+const counted = v => v.done && !v.skip;   // 볼륨·그래프에는 완료한 세트만
 const wType = w => D.types[w] === 2 ? 2 : 4;
 const sessOf = w => wType(w) === 2 ? BUSY : NORMAL;
 const sName = s => s >= 4 ? `바쁜 주 ${s - 3}회차` : `${s + 1}회차`;
@@ -346,7 +354,7 @@ function card(w, s, l, id) {
     let vol = 0, doneN = 0;
     for (let i = 0; i < r.sets; i++) {
       const v = r.vals[i];
-      if (!v.skip) vol += v.w * v.r;
+      if (counted(v)) vol += v.w * v.r;
       if (v.done && !v.skip) doneN++;
       const pv = cmp && i < pr.sets ? pr.vals[i] : null;
       const kc = pv && !pv.skip ? (v.w > pv.w ? 'up' : v.w < pv.w ? 'down' : '') : '';
@@ -366,10 +374,10 @@ function card(w, s, l, id) {
     let volTxt = `<span class="donecnt">✓ ${doneN}/${r.vals.slice(0, r.sets).filter(v => !v.skip).length}</span> · 볼륨 ${vol.toLocaleString()}kg`;
     if (cmp) {
       let pvol = 0;
-      for (let i = 0; i < pr.sets; i++) if (!pr.vals[i].skip) pvol += pr.vals[i].w * pr.vals[i].r;
+      for (let i = 0; i < pr.sets; i++) if (counted(pr.vals[i])) pvol += pr.vals[i].w * pr.vals[i].r;
       const d = vol - pvol;
-      volTxt += ` · 지난번 ${pvol.toLocaleString()}kg ` +
-        (d > 0 ? `<span class="up">▲${d.toLocaleString()}</span>` : d < 0 ? `<span class="down">▼${(-d).toLocaleString()}</span>` : '(동일)');
+      volTxt += ` · 지난번 ${pvol.toLocaleString()}kg ` + (!doneN ? '' :
+        d > 0 ? `<span class="up">▲${d.toLocaleString()}</span>` : d < 0 ? `<span class="down">▼${(-d).toLocaleString()}</span>` : '(동일)');
     }
     h += `<div class="foot"><span>${volTxt}</span><button class="del" data-a="del" data-id="${id}">종목 삭제</button></div>`;
   }
@@ -525,7 +533,7 @@ function collect(type) {
       const l = getLog(k, s); if (!l) continue;
       for (const id of l.order) {
         const r = l.ex[id]; if (!r || r.skip || !r.name.trim()) continue;
-        const sets = r.vals.slice(0, r.sets).filter(v => !v.skip); if (!sets.length) continue;
+        const sets = r.vals.slice(0, r.sets).filter(counted); if (!sets.length) continue;
         any = true;
         const bw = sets.every(v => v.w === 0);   // 맨몸 종목은 횟수로 성장 판단
         let top = null, best = null, vol = 0;
@@ -645,7 +653,7 @@ function renderStats() {
     <div class="readout">${last.wk}주차 · 총 볼륨 ${fmt(last.vol)}kg</div>
   </div>
   <div class="seg small">${Object.keys(METRIC).map(k => `<button data-a="stM" data-m="${k}" class="${stM === k ? 'on' : ''}">${METRIC[k]}</button>`).join('')}</div>
-  <p class="hint">${stM === 'e1' ? '추정 1RM: 무게와 횟수를 합쳐 계산한 1회 최대 무게입니다. 무게가 같아도 횟수가 늘면 올라가요.' : stM === 'top' ? '최고 무게: 그날 가장 무거웠던 세트의 무게입니다.' : '볼륨: 그날 그 종목의 무게×횟수 합계입니다.'}</p>`;
+  <p class="hint">${stM === 'e1' ? '추정 1RM: 무게와 횟수를 합쳐 계산한 1회 최대 무게입니다. 무게가 같아도 횟수가 늘면 올라가요. 완료한 세트만 계산합니다.' : stM === 'top' ? '최고 무게: 그날 완료한 세트 중 가장 무거운 무게입니다.' : '볼륨: 그날 완료한 세트의 무게×횟수 합계입니다.'}</p>`;
   let curS = -1;
   list.forEach((e, i) => {
     if (e.s !== curS) {
