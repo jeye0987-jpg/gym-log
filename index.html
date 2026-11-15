@@ -277,7 +277,7 @@ function opts(from, to, sel, suffix = '') {
   return h;
 }
 
-function render() { view.s === 'stats' ? renderStats() : view.s === null ? renderHome() : renderSession(); }
+function render() { view.s === 'paste' ? renderPaste() : view.s === 'stats' ? renderStats() : view.s === null ? renderHome() : renderSession(); }
 
 function renderHome() {
   const w = D.week;
@@ -309,7 +309,8 @@ function renderHome() {
   h += `<div class="backup">
     <p>기록은 이 기기 브라우저에 자동 저장됩니다. 가끔 백업 파일을 저장해 두세요.</p>
     <div class="row"><button class="ghost" data-a="export">⬇︎ 백업 저장</button>
-    <button class="ghost" data-a="import">⬆︎ 백업 불러오기</button></div></div>`;
+    <button class="ghost" data-a="import">⬆︎ 백업 불러오기</button></div>
+    <div class="row" style="margin-top:8px"><button class="ghost" data-a="paste">📋 복사한 기록 붙여넣기</button></div></div>`;
   app.innerHTML = h;
 }
 
@@ -399,6 +400,13 @@ app.addEventListener('click', async e => {
     D.types[w] = t; save(); return render();
   }
   if (a === 'export') return doExport();
+  if (a === 'paste') { location.hash = 'paste'; return; }
+  if (a === 'clip') {
+    try { const t = await navigator.clipboard.readText(); document.getElementById('pasteBox').value = t; if (t) return importText(t); }
+    catch (_) {}
+    return ask('클립보드를 읽지 못했어요. 입력칸을 길게 눌러 붙여넣기 해 주세요.', true);
+  }
+  if (a === 'doPaste') return importText(document.getElementById('pasteBox').value);
   if (a === 'stats') { location.hash = 'stats'; return; }
   if (a === 'stT') { stT = +b.dataset.t; return renderStats(); }
   if (a === 'stM') { stM = b.dataset.m; return renderStats(); }
@@ -466,15 +474,29 @@ function doExport() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
+async function importText(text) {
+  let d;
+  try {
+    d = JSON.parse(text.trim());
+    if (!d || !Array.isArray(d.sessions) || typeof d.logs !== 'object') throw 0;
+  } catch (_) { return ask('올바른 백업 내용이 아니에요.\n복사한 내용 전체가 붙여넣어졌는지 확인해 주세요.', true); }
+  if (!await ask('지금 기록을 백업 내용으로 덮어쓸까요?')) return;
+  D = migrate(d); save(); location.hash = ''; render();
+  toast(`불러오기 완료 (${D.maxWeek}주차까지)`);
+}
 document.getElementById('importFile').addEventListener('change', async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-  try {
-    const d = JSON.parse(await f.text());
-    if (!d || !Array.isArray(d.sessions) || typeof d.logs !== 'object') throw 0;
-    if (!await ask('지금 기록을 백업 파일 내용으로 덮어쓸까요?')) return;
-    D = migrate(d); save(); location.hash = ''; render();
-  } catch (_) { ask('올바른 백업 파일이 아니에요.', true); }
+  importText(await f.text());
 });
+function renderPaste() {
+  app.innerHTML = `<div class="top"><button class="back" data-a="home">‹ 목록</button><div class="ttl">복사한 기록 붙여넣기</div></div>
+  <div class="panel">
+    <p class="hint" style="margin:0 0 10px">백업 내용을 복사해 왔다면 아래 버튼을 누르거나, 입력칸을 길게 눌러 붙여넣기 하세요.</p>
+    <button class="primary" style="margin:0 0 10px" data-a="clip">📋 클립보드에서 붙여넣기</button>
+    <textarea id="pasteBox" placeholder="여기에 붙여넣기" style="width:100%;height:160px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--bg);color:var(--text);font-size:14px"></textarea>
+    <button class="primary" data-a="doPaste">불러오기</button>
+  </div>`;
+}
 
 /* ---------- 성장 한눈에 보기 ---------- */
 let stT = 4, stM = 'e1';
@@ -649,7 +671,7 @@ app.addEventListener('click', e => { const t = e.target.closest('[data-tip]'); i
 /* ---------- 라우팅 ---------- */
 function route() {
   const m = location.hash.match(/^#s([0-5])$/);
-  view.s = m ? +m[1] : location.hash === '#stats' ? 'stats' : null;
+  view.s = m ? +m[1] : location.hash === '#stats' ? 'stats' : location.hash === '#paste' ? 'paste' : null;
   render(); window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
