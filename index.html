@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="운동기록">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f3f5">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>운동 기록</title>
+<style>
+:root{
+  --bg:#f2f3f5;--card:#fff;--text:#16181c;--muted:#8a8f98;--line:#e4e6ea;
+  --accent:#2f6fed;--accent-weak:#e8efff;--up:#12a150;--up-weak:#e3f6ea;
+  --down:#d93b3b;--down-weak:#fde8e8;--warn:#c77700;--warn-weak:#fff2dc;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0f1012;--card:#1b1d21;--text:#eceef1;--muted:#8b919b;--line:#2c2f35;
+  --accent:#5b8cff;--accent-weak:#1d2a47;--up:#3ccf7a;--up-weak:#16301f;
+  --down:#ff6b6b;--down-weak:#3a1c1c;--warn:#ffb340;--warn-weak:#3a2c12;
+}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0f1012;--card:#1b1d21;--text:#eceef1;--muted:#8b919b;--line:#2c2f35;
+  --accent:#5b8cff;--accent-weak:#1d2a47;--up:#3ccf7a;--up-weak:#16301f;
+  --down:#ff6b6b;--down-weak:#3a1c1c;--warn:#ffb340;--warn-weak:#3a2c12;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:16px}
+#app{max-width:480px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) 16px calc(80px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit;cursor:pointer}
+select,input{font:inherit;font-size:16px;color:var(--text)}
+h1{font-size:22px;margin:8px 0 14px}
+.weeknav{display:flex;align-items:center;justify-content:space-between;background:var(--card);
+  border-radius:14px;padding:8px;margin-bottom:12px}
+.weeknav .wk{font-size:20px;font-weight:700}
+.navbtn{border:0;background:var(--bg);border-radius:10px;width:44px;height:40px;font-size:18px}
+.navbtn:disabled{opacity:.3}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sess{border:0;background:var(--card);border-radius:16px;padding:16px 14px;text-align:left;min-height:130px;
+  display:flex;flex-direction:column;gap:4px}
+.sess .t{font-size:20px;font-weight:800}
+.sess .lbl{font-size:14px;color:var(--accent);font-weight:600;min-height:18px}
+.sess .names{font-size:12px;color:var(--muted);line-height:1.4;flex:1}
+.badge{display:inline-block;font-size:12px;padding:3px 8px;border-radius:99px;background:var(--bg);color:var(--muted);align-self:flex-start}
+.badge.done{background:var(--up-weak);color:var(--up);font-weight:700}
+.primary{width:100%;border:0;background:var(--accent);color:#fff;border-radius:14px;padding:14px;font-weight:700;margin-top:14px}
+.ghost{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 12px;font-size:14px}
+.seg{display:flex;background:var(--card);border-radius:12px;padding:4px;gap:4px;margin-bottom:12px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 4px;font-size:14px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--accent);color:#fff}
+.seg button.on.busy{background:var(--warn);color:#fff}
+.newrow{display:flex;gap:8px}
+.newrow .primary{flex:1;padding:12px 6px}
+.primary small{display:block;font-size:12px;font-weight:500;opacity:.85;margin-top:2px}
+.primary.busy{background:var(--warn)}
+.statbtn{width:100%;border:0;background:var(--card);border-radius:14px;padding:14px;font-weight:700;margin-top:10px;color:var(--accent)}
+.seg.small button{font-size:13px;padding:8px 2px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.tile{background:var(--card);border-radius:14px;padding:12px 8px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.tile b{font-size:24px;font-variant-numeric:tabular-nums}
+.tile span{font-size:12px;color:var(--muted)}
+.cu{color:var(--up)}.cd{color:var(--down)}.cf{color:var(--warn)}
+.panel{background:var(--card);border-radius:16px;padding:14px;margin-bottom:12px}
+.ph{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.exn{font-size:16px;font-weight:800;min-width:0;overflow-wrap:anywhere}
+.big{font-size:14px;color:var(--muted);margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.big b{color:var(--text);font-size:20px}
+.chip{font-size:12px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap;background:var(--bg);color:var(--muted)}
+.chip.up{background:var(--up-weak);color:var(--up)}
+.chip.flat{background:var(--warn-weak);color:var(--warn)}
+.chip.down{background:var(--down-weak);color:var(--down)}
+.hint{font-size:12px;color:var(--muted);margin:-4px 2px 12px;line-height:1.5}
+.grp{font-size:13px;font-weight:800;color:var(--muted);margin:18px 2px 8px}
+.chart{width:100%;height:auto;display:block;margin-top:6px;touch-action:pan-y}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .ax{fill:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.chart .ln{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.chart .area{fill:var(--accent-weak);opacity:.7}
+.chart .dot{fill:var(--accent);stroke:var(--card);stroke-width:2}
+.chart .dot.sel{r:6}
+.chart .bar{fill:var(--accent);opacity:.45}
+.chart .bar.last,.chart .bar.sel{opacity:1}
+.chart .hit{fill:transparent;cursor:pointer}
+.readout{font-size:12px;color:var(--text);background:var(--bg);border-radius:8px;padding:6px 8px;margin-top:6px;min-height:28px;font-variant-numeric:tabular-nums}
+details{margin-top:8px;font-size:13px}
+summary{color:var(--muted);cursor:pointer}
+.tw{overflow-x:auto;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+th{color:var(--muted);font-weight:600}
+.backup{margin-top:28px;padding-top:16px;border-top:1px solid var(--line)}
+.backup p{font-size:12px;color:var(--muted);margin:0 0 8px}
+.backup .row{display:flex;gap:8px}
+
+.top{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;
+  padding:6px 0 10px;margin:0 -2px}
+.back{border:0;background:var(--card);border-radius:10px;padding:8px 12px;font-weight:600}
+.top .ttl{font-size:18px;font-weight:800;flex:1}
+.top .date{font-size:13px;color:var(--muted)}
+.label{width:100%;border:0;background:var(--card);border-radius:12px;padding:12px;margin-bottom:12px;color:var(--accent);font-weight:600}
+
+.card{background:var(--card);border-radius:16px;padding:12px;margin-bottom:12px}
+.card.skipped{opacity:.55}
+.head{display:flex;gap:6px;align-items:center}
+.name{flex:1;min-width:0;border:1px solid var(--line);background:transparent;border-radius:10px;padding:9px 10px;font-weight:700}
+.setsel{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:9px 6px;font-weight:600}
+.skipbtn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:8px 9px;font-size:13px;color:var(--muted);white-space:nowrap}
+.skipbtn.on{background:var(--warn-weak);border-color:var(--warn);color:var(--warn);font-weight:700}
+.sub{font-size:12px;color:var(--muted);margin:6px 2px 2px;min-height:0}
+.chg{color:var(--warn);font-weight:700}
+.new{color:var(--accent);font-weight:700}
+.sets{margin-top:6px}
+.set{display:grid;grid-template-columns:22px auto auto 1fr auto;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
+.set:first-child{border-top:0}
+.set .no{font-size:13px;color:var(--muted);text-align:center;font-weight:700}
+.val{display:flex;align-items:center;gap:3px;font-size:13px;color:var(--muted)}
+.val select{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--bg);
+  border-radius:10px;padding:8px 0;text-align:center;text-align-last:center;font-weight:700;font-size:17px}
+.val select.kg{width:62px}.val select.rp{width:50px}
+.val select.up{background:var(--up-weak);border-color:var(--up);color:var(--up)}
+.val select.down{background:var(--down-weak);border-color:var(--down);color:var(--down)}
+.prev{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
+.set.skipped .val,.set.skipped .no{opacity:.35}
+.set.skipped .val select{pointer-events:none}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px;color:var(--muted)}
+.foot .up{color:var(--up);font-weight:700}.foot .down{color:var(--down);font-weight:700}
+.del{border:0;background:transparent;color:var(--muted);font-size:12px;text-decoration:underline;padding:4px}
+.skipnote{margin-top:8px;font-size:13px;color:var(--warn);font-weight:600}
+.add{width:100%;border:2px dashed var(--line);background:transparent;border-radius:16px;padding:14px;color:var(--muted);font-weight:700}
+.empty{text-align:center;color:var(--muted);font-size:14px;padding:24px 0}
+[hidden]{display:none!important}
+#modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px}
+#modal .box{background:var(--card);border-radius:18px;padding:20px;width:100%;max-width:340px}
+#modal .msg{white-space:pre-line;line-height:1.5;margin-bottom:16px}
+#modal .btns{display:flex;gap:8px}
+#modal button{flex:1;border:0;border-radius:12px;padding:12px;font-weight:700}
+#modal .no{background:var(--bg)}
+#modal .yes{background:var(--accent);color:#fff}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  background:rgba(20,20,20,.85);color:#fff;font-size:13px;padding:7px 14px;border-radius:99px;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<div id="modal" hidden><div class="box"><div class="msg"></div><div class="btns"><button class="no" id="mNo">취소</button><button class="yes" id="mYes">확인</button></div></div></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+<script>
+const KEY = 'gymlog-v1';
+const N_SESS = 6;            // 0~3: 평소(주 4회), 4~5: 바쁜 주(주 2회)
+const BUSY = [4, 5], NORMAL = [0, 1, 2, 3];
+const DEF = {w: 20, r: 10};
+
+/* ---------- 데이터 ---------- */
+function blank() {
+  return {v: 1, week: 1, maxWeek: 1,
+    sessions: Array.from({length: N_SESS}, () => ({label: '', slots: []})),
+    logs: {}, types: {}};
+}
+function migrate(d) {
+  while (d.sessions.length < N_SESS) d.sessions.push({label: '', slots: []});
+  d.types = d.types || {};
+  return d;
+}
+const wType = w => D.types[w] === 2 ? 2 : 4;
+const sessOf = w => wType(w) === 2 ? BUSY : NORMAL;
+const sName = s => s >= 4 ? `바쁜 주 ${s - 3}회차` : `${s + 1}회차`;
+function hasEarlier(w, s) { for (let k = w - 1; k >= 1; k--) if (getLog(k, s)) return true; return false; }
+function load() {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) { const d = JSON.parse(s); if (d && d.sessions) return migrate(d); }
+  } catch (e) {}
+  return blank();
+}
+let D = load();
+// 화면 안 확인창 (alert/confirm 대신)
+function ask(msg, okOnly) {
+  return new Promise(res => {
+    const m = document.getElementById('modal');
+    m.querySelector('.msg').textContent = msg;
+    document.getElementById('mNo').hidden = !!okOnly;
+    m.hidden = false;
+    const done = v => { m.hidden = true; res(v); };
+    document.getElementById('mYes').onclick = () => done(true);
+    document.getElementById('mNo').onclick = () => done(false);
+  });
+}
+let toastT;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1200);
+}
+function save(quiet) {
+  try { localStorage.setItem(KEY, JSON.stringify(D)); if (!quiet) toast('자동 저장됨'); }
+  catch (e) { toast('⚠️ 저장 실패'); }
+}
+const uid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today = () => { const d = new Date(); return `${d.getMonth()+1}/${d.getDate()}`; };
+const getLog = (w, s) => D.logs[w] && D.logs[w][s];
+
+// 같은 회차, 같은 슬롯의 가장 최근 지난 기록
+function prevRec(w, s, id) {
+  for (let k = w - 1; k >= 1; k--) {
+    const l = getLog(k, s);
+    if (l && l.ex[id]) return {rec: l.ex[id], week: k};
+  }
+  return null;
+}
+// 종목명으로 가장 최근 기록 찾기 (종목 바꿨을 때 그 종목의 예전 기록 불러오기)
+function lastByName(name, exclude) {
+  name = name.trim(); if (!name) return null;
+  for (let k = D.maxWeek; k >= 1; k--) {
+    const wl = D.logs[k]; if (!wl) continue;
+    for (const s in wl) for (const id in wl[s].ex) {
+      const r = wl[s].ex[id];
+      if (r !== exclude && r.name.trim() === name && !r.skip) return r;
+    }
+  }
+  return null;
+}
+function newRec(w, s, sl) {
+  const p = prevRec(w, s, sl.id), src = p ? p.rec : null;
+  const len = Math.max(sl.sets, src ? src.vals.length : 0);
+  const vals = [];
+  for (let i = 0; i < len; i++) {
+    const v = (src && src.vals[i]) || vals[i - 1] || DEF;
+    vals.push({w: v.w, r: v.r, skip: false});
+  }
+  return {name: sl.name, sets: sl.sets, skip: false, vals};
+}
+// 해당 주차·회차를 처음 열면 지난 기록을 복사해서 이번 기록 생성
+function ensureLog(w, s) {
+  D.logs[w] = D.logs[w] || {};
+  if (D.logs[w][s]) return D.logs[w][s];
+  const l = {date: today(), order: [], ex: {}};
+  for (const sl of D.sessions[s].slots) { l.order.push(sl.id); l.ex[sl.id] = newRec(w, s, sl); }
+  D.logs[w][s] = l; save(true);
+  return l;
+}
+// 가장 최근 주차에서 바꾼 구성(종목명/세트수/추가/삭제)은 다음 주 기본 루틴으로 반영
+function syncTemplate(w, s) {
+  for (let k = w + 1; k <= D.maxWeek; k++) if (getLog(k, s)) return;
+  const l = getLog(w, s); if (!l) return;
+  D.sessions[s].slots = l.order.map(id => ({id, name: l.ex[id].name, sets: l.ex[id].sets}));
+}
+function fillVals(r, w, s, id) {
+  const p = prevRec(w, s, id);
+  while (r.vals.length < r.sets) {
+    const i = r.vals.length;
+    const v = (p && p.rec.vals[i]) || r.vals[i - 1] || DEF;
+    r.vals.push({w: v.w, r: v.r, skip: false});
+  }
+}
+
+/* ---------- 화면 ---------- */
+const app = document.getElementById('app');
+let view = {s: null};
+
+function opts(from, to, sel, suffix = '') {
+  let h = '';
+  for (let i = from; i <= to; i++) h += `<option value="${i}"${i === sel ? ' selected' : ''}>${i}${suffix}</option>`;
+  return h;
+}
+
+function render() { view.s === 'stats' ? renderStats() : view.s === null ? renderHome() : renderSession(); }
+
+function renderHome() {
+  const w = D.week;
+  let h = `<h1>💪 운동 기록</h1>
+  <div class="weeknav">
+    <button class="navbtn" data-a="wprev" ${w <= 1 ? 'disabled' : ''}>◀</button>
+    <div class="wk">${w}주차</div>
+    <button class="navbtn" data-a="wnext" ${w >= D.maxWeek ? 'disabled' : ''}>▶</button>
+  </div>
+  <div class="seg">
+    <button data-a="type" data-t="4" class="${wType(w) === 4 ? 'on' : ''}">평소 (주 4회)</button>
+    <button data-a="type" data-t="2" class="${wType(w) === 2 ? 'on busy' : ''}">바쁜 주 (주 2회)</button>
+  </div><div class="grid">`;
+  for (const s of sessOf(w)) {
+    const l = getLog(w, s), ses = D.sessions[s];
+    const names = l ? l.order.map(id => l.ex[id].name || '(이름 없음)') : ses.slots.map(x => x.name || '(이름 없음)');
+    h += `<button class="sess" data-a="open" data-s="${s}">
+      <div class="t">${s >= 4 ? (s - 3) + '회차' : (s + 1) + '회차'}</div>
+      <div class="lbl">${esc(ses.label)}</div>
+      <div class="names">${names.length ? esc(names.join(' · ')) : '종목 없음'}</div>
+      <span class="badge ${l ? 'done' : ''}">${l ? '✓ 기록 ' + l.date : '미기록'}</span>
+    </button>`;
+  }
+  h += `</div>`;
+  if (w === D.maxWeek) h += `<div class="newrow"><button class="primary" data-a="wnew" data-t="4">＋ ${w + 1}주차 시작<small>평소 주 4회</small></button>
+    <button class="primary busy" data-a="wnew" data-t="2">＋ ${w + 1}주차 시작<small>바쁜 주 2회</small></button></div>`;
+  else h += `<button class="primary" data-a="wlast">최신 주차(${D.maxWeek}주차)로 이동</button>`;
+  h += `<button class="statbtn" data-a="stats">📈 성장 한눈에 보기</button>`;
+  h += `<div class="backup">
+    <p>기록은 이 기기 브라우저에 자동 저장됩니다. 가끔 백업 파일을 저장해 두세요.</p>
+    <div class="row"><button class="ghost" data-a="export">⬇︎ 백업 저장</button>
+    <button class="ghost" data-a="import">⬆︎ 백업 불러오기</button></div></div>`;
+  app.innerHTML = h;
+}
+
+function card(w, s, l, id) {
+  const r = l.ex[id];
+  const p = prevRec(w, s, id), pr = p ? p.rec : null;
+  const changed = pr && pr.name.trim() !== r.name.trim();
+  const cmp = pr && !changed && !pr.skip;   // 비교 가능한 지난 기록
+  let sub = '';
+  if (changed) sub = `<span class="chg">(종목 바뀜)</span> 이전: ${esc(pr.name || '이름 없음')}`;
+  else if (!pr && hasEarlier(w, s)) sub = `<span class="new">(새 종목)</span>`;
+  else if (pr && pr.skip) sub = `지난번(${p.week}주차) 생략함`;
+
+  let h = `<div class="card ${r.skip ? 'skipped' : ''}" data-id="${id}">
+    <div class="head">
+      <input class="name" data-a="name" data-id="${id}" value="${esc(r.name)}" placeholder="종목명 입력">
+      <select class="setsel" data-a="sets" data-id="${id}">${opts(1, 10, r.sets, '세트')}</select>
+      <button class="skipbtn ${r.skip ? 'on' : ''}" data-a="skipex" data-id="${id}">${r.skip ? '생략됨' : '생략'}</button>
+    </div>
+    ${sub ? `<div class="sub">${sub}</div>` : ''}`;
+
+  if (r.skip) {
+    h += `<div class="skipnote">이번 주 이 종목은 생략했어요 (다시 누르면 해제)</div>`;
+  } else {
+    h += `<div class="sets">`;
+    let vol = 0;
+    for (let i = 0; i < r.sets; i++) {
+      const v = r.vals[i];
+      if (!v.skip) vol += v.w * v.r;
+      const pv = cmp && i < pr.sets ? pr.vals[i] : null;
+      const kc = pv && !pv.skip ? (v.w > pv.w ? 'up' : v.w < pv.w ? 'down' : '') : '';
+      const rc = pv && !pv.skip ? (v.r > pv.r ? 'up' : v.r < pv.r ? 'down' : '') : '';
+      const prevTxt = !cmp ? '' : !pv ? '지난 –' : pv.skip ? '지난 생략' : `지난 ${pv.w}×${pv.r}`;
+      h += `<div class="set ${v.skip ? 'skipped' : ''}">
+        <span class="no">${i + 1}</span>
+        <label class="val"><select class="kg ${v.skip ? '' : kc}" data-a="w" data-id="${id}" data-i="${i}">${opts(1, 300, v.w)}</select>kg</label>
+        <label class="val"><select class="rp ${v.skip ? '' : rc}" data-a="r" data-id="${id}" data-i="${i}">${opts(1, 50, v.r)}</select>회</label>
+        <span class="prev">${prevTxt}</span>
+        <button class="skipbtn ${v.skip ? 'on' : ''}" data-a="skipset" data-id="${id}" data-i="${i}">${v.skip ? '생략됨' : '생략'}</button>
+      </div>`;
+    }
+    h += `</div>`;
+    let volTxt = `볼륨 ${vol.toLocaleString()}kg`;
+    if (cmp) {
+      let pvol = 0;
+      for (let i = 0; i < pr.sets; i++) if (!pr.vals[i].skip) pvol += pr.vals[i].w * pr.vals[i].r;
+      const d = vol - pvol;
+      volTxt += ` · 지난번 ${pvol.toLocaleString()}kg ` +
+        (d > 0 ? `<span class="up">▲${d.toLocaleString()}</span>` : d < 0 ? `<span class="down">▼${(-d).toLocaleString()}</span>` : '(동일)');
+    }
+    h += `<div class="foot"><span>${volTxt}</span><button class="del" data-a="del" data-id="${id}">종목 삭제</button></div>`;
+  }
+  return h + `</div>`;
+}
+
+function renderSession() {
+  const s = view.s, w = D.week, l = ensureLog(w, s);
+  let h = `<div class="top"><button class="back" data-a="home">‹ 목록</button>
+    <div class="ttl">${w}주차 · ${sName(s)}</div><span class="date">${l.date}</span></div>
+    <input class="label" data-a="label" value="${esc(D.sessions[s].label)}" placeholder="부위 메모 (예: 가슴·삼두)">`;
+  if (!l.order.length) h += `<div class="empty">아직 종목이 없어요.<br>아래 버튼으로 추가하세요. 다음 주부터는 이 구성이 자동으로 나옵니다.</div>`;
+  h += l.order.map(id => card(w, s, l, id)).join('');
+  h += `<button class="add" data-a="add">＋ 종목 추가</button>`;
+  app.innerHTML = h;
+}
+
+/* ---------- 이벤트 ---------- */
+function cur() { return {w: D.week, s: view.s, l: getLog(D.week, view.s)}; }
+
+app.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const a = b.dataset.a, id = b.dataset.id, i = +b.dataset.i;
+  if (a === 'open') { location.hash = 's' + b.dataset.s; return; }
+  if (a === 'home') { location.hash = ''; return; }
+  if (a === 'wprev') { D.week--; save(true); return render(); }
+  if (a === 'wnext') { D.week++; save(true); return render(); }
+  if (a === 'wlast') { D.week = D.maxWeek; save(true); return render(); }
+  if (a === 'wnew') {
+    const t = +b.dataset.t;
+    if (!await ask(`${D.week + 1}주차를 ${t === 2 ? '바쁜 주(주 2회)' : '평소(주 4회)'}로 시작할까요?\n각 회차를 열면 마지막 ${t === 2 ? '바쁜 주' : '평소'} 기록이 그대로 불러와집니다.`)) return;
+    D.maxWeek = D.week + 1; D.week = D.maxWeek; D.types[D.week] = t; save(); return render();
+  }
+  if (a === 'type') {
+    const t = +b.dataset.t, w = D.week; if (t === wType(w)) return;
+    const recorded = sessOf(w).some(x => getLog(w, x));
+    if (recorded && !await ask(`이번 주를 ${t === 2 ? '바쁜 주(주 2회)' : '평소(주 4회)'}로 바꿀까요?\n이미 입력한 기록은 지워지지 않고, 다시 바꾸면 그대로 보입니다.`)) return;
+    D.types[w] = t; save(); return render();
+  }
+  if (a === 'export') return doExport();
+  if (a === 'stats') { location.hash = 'stats'; return; }
+  if (a === 'stT') { stT = +b.dataset.t; return renderStats(); }
+  if (a === 'stM') { stM = b.dataset.m; return renderStats(); }
+  if (a === 'import') return document.getElementById('importFile').click();
+
+  const {w, s, l} = cur(); if (!l) return;
+  if (a === 'add') {
+    const nid = uid();
+    l.order.push(nid);
+    l.ex[nid] = {name: '', sets: 3, skip: false, vals: [0, 1, 2].map(() => ({...DEF, skip: false}))};
+    syncTemplate(w, s); save(); render();
+    const inp = app.querySelector(`input[data-id="${nid}"]`); if (inp) { inp.scrollIntoView({block: 'center'}); inp.focus(); }
+    return;
+  }
+  const r = l.ex[id]; if (!r) return;
+  if (a === 'skipex') r.skip = !r.skip;
+  if (a === 'skipset') r.vals[i].skip = !r.vals[i].skip;
+  if (a === 'del') {
+    if (!await ask(`'${r.name || '이름 없음'}' 종목을 삭제할까요?\n다음 주 루틴에서도 빠집니다.`)) return;
+    l.order = l.order.filter(x => x !== id); delete l.ex[id]; syncTemplate(w, s);
+  }
+  save(); render();
+});
+
+app.addEventListener('change', e => {
+  const el = e.target, a = el.dataset.a; if (!a || a === 'label') return;
+  const {w, s, l} = cur(); if (!l) return;
+  const id = el.dataset.id, r = l.ex[id]; if (!r) return;
+  if (a === 'w' || a === 'r') r.vals[+el.dataset.i][a] = +el.value;
+  if (a === 'sets') { r.sets = +el.value; fillVals(r, w, s, id); syncTemplate(w, s); }
+  if (a === 'name') {
+    r.name = el.value.trim();
+    const p = prevRec(w, s, id);
+    if (r.name && (!p || p.rec.name.trim() !== r.name)) {
+      const old = lastByName(r.name, r);
+      if (old) {
+        r.sets = old.sets;
+        r.vals = old.vals.map(v => ({w: v.w, r: v.r, skip: false}));
+        toast(`'${r.name}' 최근 기록을 불러왔어요`);
+      }
+    }
+    syncTemplate(w, s);
+    save(true); return render();
+  }
+  save(); render();
+});
+
+let typeT;
+app.addEventListener('input', e => {
+  const el = e.target, a = el.dataset.a;
+  const {w, s, l} = cur();
+  if (a === 'label') D.sessions[s].label = el.value;
+  else if (a === 'name' && l && l.ex[el.dataset.id]) { l.ex[el.dataset.id].name = el.value; syncTemplate(w, s); }
+  else return;
+  clearTimeout(typeT); typeT = setTimeout(() => save(), 400);
+});
+
+/* ---------- 백업 ---------- */
+function doExport() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  const blob = new Blob([JSON.stringify(D, null, 1)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `운동기록-백업-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+document.getElementById('importFile').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d || !Array.isArray(d.sessions) || typeof d.logs !== 'object') throw 0;
+    if (!await ask('지금 기록을 백업 파일 내용으로 덮어쓸까요?')) return;
+    D = migrate(d); save(); location.hash = ''; render();
+  } catch (_) { ask('올바른 백업 파일이 아니에요.', true); }
+});
+
+/* ---------- 성장 한눈에 보기 ---------- */
+let stT = 4, stM = 'e1';
+const METRIC = {e1: '추정 1RM', top: '최고 무게', vol: '볼륨'};
+const e1rm = (w, r) => w * (1 + r / 30);   // Epley 공식
+const fmt = n => Math.round(n).toLocaleString();
+
+function collect(type) {
+  const sess = type === 2 ? BUSY : NORMAL;
+  const map = new Map(), weekly = [];
+  for (let k = 1; k <= D.maxWeek; k++) {
+    if (wType(k) !== type) continue;
+    let wv = 0, any = false;
+    for (const s of sess) {
+      const l = getLog(k, s); if (!l) continue;
+      for (const id of l.order) {
+        const r = l.ex[id]; if (!r || r.skip || !r.name.trim()) continue;
+        const sets = r.vals.slice(0, r.sets).filter(v => !v.skip); if (!sets.length) continue;
+        any = true;
+        let top = null, best = null, vol = 0;
+        for (const v of sets) {
+          vol += v.w * v.r;
+          if (!top || v.w > top.w || (v.w === top.w && v.r > top.r)) top = v;
+          if (!best || e1rm(v.w, v.r) > e1rm(best.w, best.r)) best = v;
+        }
+        wv += vol;
+        const key = r.name.trim();
+        let e = map.get(key);
+        if (!e) { e = {name: key, s, ord: map.size, pts: []}; map.set(key, e); }
+        const pt = {wk: k, top: top.w, topR: top.r, e1: Math.round(e1rm(best.w, best.r)), vol,
+          sets: sets.map(v => `${v.w}×${v.r}`).join(', ')};
+        const last = e.pts[e.pts.length - 1];
+        if (last && last.wk === k) {   // 같은 주에 같은 종목을 두 번 했으면 합침
+          last.vol += pt.vol; last.sets += ' / ' + pt.sets;
+          if (pt.top > last.top) { last.top = pt.top; last.topR = pt.topR; }
+          last.e1 = Math.max(last.e1, pt.e1);
+        } else e.pts.push(pt);
+      }
+    }
+    if (any) weekly.push({wk: k, vol: wv});
+  }
+  return {list: [...map.values()].sort((a, b) => a.s - b.s || a.ord - b.ord), weekly};
+}
+
+function trend(pts, m) {
+  const v = pts.map(p => p[m]), n = v.length;
+  if (n < 2) return {k: 'na', t: '기록 1회'};
+  let mi = 0; v.forEach((x, i) => { if (x > v[mi]) mi = i; });
+  const prevMax = Math.max(...v.slice(0, -1));
+  if (v[n - 1] > prevMax) return {k: 'up', t: '▲ 최고 기록'};
+  const since = n - 1 - mi;
+  if (since >= 3) return {k: 'flat', t: `■ 정체 ${since}회째`};
+  if (v[n - 1] < v[n - 2]) return {k: 'down', t: '▼ 지난번보다 낮음'};
+  return {k: 'keep', t: '● 유지'};
+}
+
+function tipText(p, m) {
+  return `${p.wk}주차 · ${METRIC[m]} ${fmt(p[m])}kg · 세트 ${p.sets}`;
+}
+
+function lineChart(pts, m) {
+  const W = 320, H = 120, L = 34, R = 12, T = 12, B = 20;
+  const vals = pts.map(p => p[m]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (lo === hi) { lo -= 5; hi += 5; } else { const pad = (hi - lo) * 0.12; lo -= pad; hi += pad; }
+  lo = Math.max(0, lo);
+  const n = pts.length;
+  const x = i => n === 1 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1);
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let g = '';
+  for (let j = 0; j <= 2; j++) {
+    const v = lo + (hi - lo) * j / 2, yy = y(v);
+    g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="grid"/><text x="${L - 6}" y="${yy + 4}" class="ax" text-anchor="end">${fmt(v)}</text>`;
+  }
+  const step = Math.ceil(n / 6);
+  pts.forEach((p, i) => { if (i % step === 0 || i === n - 1) g += `<text x="${x(i)}" y="${H - 4}" class="ax" text-anchor="middle">${p.wk}주</text>`; });
+  const path = pts.map((p, i) => `${i ? 'L' : 'M'}${x(i)},${y(p[m])}`).join('');
+  const area = n > 1 ? `<path d="${path}L${x(n - 1)},${H - B}L${x(0)},${H - B}Z" class="area"/>` : '';
+  let dots = '', hits = '';
+  const colW = n === 1 ? W : (W - L - R) / (n - 1);
+  pts.forEach((p, i) => {
+    dots += `<circle cx="${x(i)}" cy="${y(p[m])}" r="${i === n - 1 ? 5 : 3.5}" class="dot${i === n - 1 ? ' last' : ''}" data-i="${i}"/>`;
+    hits += `<rect x="${x(i) - colW / 2}" y="0" width="${colW}" height="${H}" class="hit" data-tip="${esc(tipText(p, m))}" data-i="${i}"/>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="${METRIC[m]} 추이">${g}${area}<path d="${path}" class="ln"/>${dots}${hits}</svg>`;
+}
+
+function barChart(weekly) {
+  const W = 320, H = 130, L = 40, R = 8, T = 12, B = 20, n = weekly.length;
+  const hi = Math.max(...weekly.map(w => w.vol)) * 1.1 || 1;
+  const slot = (W - L - R) / n, bw = Math.max(3, Math.min(28, slot - 2));
+  const y = v => T + (hi - v) / hi * (H - T - B);
+  let g = '';
+  for (let j = 0; j <= 2; j++) {
+    const v = hi * j / 2, yy = y(v);
+    g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" class="grid"/><text x="${L - 6}" y="${yy + 4}" class="ax" text-anchor="end">${v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + '톤' : fmt(v)}</text>`;
+  }
+  const step = Math.ceil(n / 7);
+  weekly.forEach((w, i) => {
+    const cx = L + slot * i + slot / 2, top = y(w.vol), h = H - B - top, r = Math.min(4, bw / 2, h);
+    g += `<path d="M${cx - bw / 2},${H - B}V${top + r}Q${cx - bw / 2},${top} ${cx - bw / 2 + r},${top}H${cx + bw / 2 - r}Q${cx + bw / 2},${top} ${cx + bw / 2},${top + r}V${H - B}Z" class="bar${i === n - 1 ? ' last' : ''}" data-i="${i}"/>`;
+    if (i % step === 0 || i === n - 1) g += `<text x="${cx}" y="${H - 4}" class="ax" text-anchor="middle">${w.wk}주</text>`;
+    g += `<rect x="${L + slot * i}" y="0" width="${slot}" height="${H}" class="hit" data-i="${i}" data-tip="${w.wk}주차 · 총 볼륨 ${fmt(w.vol)}kg"/>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="주차별 총 볼륨">${g}</svg>`;
+}
+
+function renderStats() {
+  const {list, weekly} = collect(stT);
+  const tr = list.map(e => trend(e.pts, stM));
+  const cnt = k => tr.filter(t => t.k === k).length;
+  let h = `<div class="top"><button class="back" data-a="home">‹ 목록</button><div class="ttl">성장 한눈에 보기</div></div>
+  <div class="seg">
+    <button data-a="stT" data-t="4" class="${stT === 4 ? 'on' : ''}">평소 (주 4회)</button>
+    <button data-a="stT" data-t="2" class="${stT === 2 ? 'on busy' : ''}">바쁜 주 (주 2회)</button>
+  </div>`;
+  if (!list.length) {
+    return app.innerHTML = h + `<div class="empty">아직 ${stT === 2 ? '바쁜 주' : '평소'} 기록이 없어요.<br>회차에서 기록을 남기면 여기에 그래프가 나타납니다.</div>`;
+  }
+  const first = weekly[0], last = weekly[weekly.length - 1];
+  const vd = weekly.length > 1 ? Math.round((last.vol - first.vol) / first.vol * 100) : null;
+  h += `<div class="tiles">
+    <div class="tile"><b>${weekly.length}</b><span>기록한 주</span></div>
+    <div class="tile"><b class="cu">${cnt('up')}</b><span>최고 기록 갱신</span></div>
+    <div class="tile"><b class="cf">${cnt('flat')}</b><span>정체 (3회 이상)</span></div>
+  </div>
+  <div class="panel chartbox">
+    <div class="ph"><span>주차별 총 볼륨</span>${vd !== null ? `<span class="${vd >= 0 ? 'cu' : 'cd'}">처음 대비 ${vd >= 0 ? '+' : ''}${vd}%</span>` : ''}</div>
+    ${barChart(weekly)}
+    <div class="readout">${last.wk}주차 · 총 볼륨 ${fmt(last.vol)}kg</div>
+  </div>
+  <div class="seg small">${Object.keys(METRIC).map(k => `<button data-a="stM" data-m="${k}" class="${stM === k ? 'on' : ''}">${METRIC[k]}</button>`).join('')}</div>
+  <p class="hint">${stM === 'e1' ? '추정 1RM: 무게와 횟수를 합쳐 계산한 1회 최대 무게입니다. 무게가 같아도 횟수가 늘면 올라가요.' : stM === 'top' ? '최고 무게: 그날 가장 무거웠던 세트의 무게입니다.' : '볼륨: 그날 그 종목의 무게×횟수 합계입니다.'}</p>`;
+  let curS = -1;
+  list.forEach((e, i) => {
+    if (e.s !== curS) {
+      curS = e.s;
+      const lbl = D.sessions[e.s].label;
+      h += `<div class="grp">${sName(e.s).replace('바쁜 주 ', '')}${lbl ? ' · ' + esc(lbl) : ''}</div>`;
+    }
+    const p0 = e.pts[0], pn = e.pts[e.pts.length - 1], t = tr[i];
+    const pct = e.pts.length > 1 && p0[stM] ? Math.round((pn[stM] - p0[stM]) / p0[stM] * 100) : null;
+    h += `<div class="panel chartbox">
+      <div class="ph"><span class="exn">${esc(e.name)}</span><span class="chip ${t.k}">${t.t}</span></div>
+      <div class="big">${fmt(p0[stM])} → <b>${fmt(pn[stM])}kg</b>${pct !== null ? ` <span class="${pct > 0 ? 'cu' : pct < 0 ? 'cd' : ''}">(${pct > 0 ? '+' : ''}${pct}%)</span>` : ''}</div>
+      ${lineChart(e.pts, stM)}
+      <div class="readout">${esc(tipText(pn, stM))}</div>
+      <details><summary>기록 표 보기</summary><div class="tw"><table>
+        <tr><th>주차</th><th>세트 (kg×회)</th><th>1RM</th><th>볼륨</th></tr>
+        ${e.pts.slice().reverse().map(p => `<tr><td>${p.wk}주</td><td>${p.sets}</td><td>${fmt(p.e1)}</td><td>${fmt(p.vol)}</td></tr>`).join('')}
+      </table></div></details>
+    </div>`;
+  });
+  app.innerHTML = h;
+}
+
+// 그래프를 누르거나 마우스를 올리면 그 주 기록을 아래에 표시
+function showTip(el) {
+  const box = el.closest('.chartbox'); if (!box) return;
+  box.querySelector('.readout').textContent = el.dataset.tip;
+  box.querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
+  box.querySelectorAll(`.dot[data-i="${el.dataset.i}"],.bar[data-i="${el.dataset.i}"]`).forEach(x => x.classList.add('sel'));
+}
+app.addEventListener('pointerover', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); });
+app.addEventListener('click', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); });
+
+/* ---------- 라우팅 ---------- */
+function route() {
+  const m = location.hash.match(/^#s([0-5])$/);
+  view.s = m ? +m[1] : location.hash === '#stats' ? 'stats' : null;
+  render(); window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+route();
+// 아이폰이 저장공간을 정리할 때 기록이 지워지지 않도록 영구 저장 요청 + 오프라인 지원
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
