@@ -113,9 +113,16 @@ th{color:var(--muted);font-weight:600}
 .chg{color:var(--warn);font-weight:700}
 .new{color:var(--accent);font-weight:700}
 .sets{margin-top:6px}
-.set{display:grid;grid-template-columns:22px auto auto 1fr auto;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
+.set{display:grid;grid-template-columns:24px auto auto 1fr auto auto;align-items:center;gap:6px;padding:5px 0;border-top:1px solid var(--line)}
 .set:first-child{border-top:0}
-.set .no{font-size:13px;color:var(--muted);text-align:center;font-weight:700}
+.set .no{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);font-weight:700;background:var(--bg)}
+.set.done .no{background:var(--up);color:#fff}
+.set.done{background:linear-gradient(90deg,var(--up-weak),transparent 70%);border-radius:10px}
+.donebtn{border:1px solid var(--line);background:transparent;border-radius:10px;padding:8px 9px;font-size:13px;color:var(--muted);white-space:nowrap}
+.donebtn.on{background:var(--up);border-color:var(--up);color:#fff;font-weight:700}
+.sethead{display:grid;grid-template-columns:24px auto auto 1fr;gap:6px;font-size:11px;color:var(--muted);padding:2px 0 0}
+.sethead span:nth-child(2){width:80px;text-align:center}.sethead span:nth-child(3){width:68px;text-align:center}.sethead span:last-child{text-align:right;padding-right:96px}
+.donecnt{color:var(--up);font-weight:700}
 .val{display:flex;align-items:center;gap:3px;font-size:13px;color:var(--muted)}
 .val select{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--bg);
   border-radius:10px;padding:8px 0;text-align:center;text-align-last:center;font-weight:700;font-size:17px}
@@ -335,25 +342,28 @@ function card(w, s, l, id) {
   if (r.skip) {
     h += `<div class="skipnote">이번 주 이 종목은 생략했어요 (다시 누르면 해제)</div>`;
   } else {
-    h += `<div class="sets">`;
-    let vol = 0;
+    h += `<div class="sets"><div class="sethead"><span></span><span>무게</span><span>횟수</span><span>${cmp ? '지난번' : ''}</span></div>`;
+    let vol = 0, doneN = 0;
     for (let i = 0; i < r.sets; i++) {
       const v = r.vals[i];
       if (!v.skip) vol += v.w * v.r;
+      if (v.done && !v.skip) doneN++;
       const pv = cmp && i < pr.sets ? pr.vals[i] : null;
       const kc = pv && !pv.skip ? (v.w > pv.w ? 'up' : v.w < pv.w ? 'down' : '') : '';
       const rc = pv && !pv.skip ? (v.r > pv.r ? 'up' : v.r < pv.r ? 'down' : '') : '';
-      const prevTxt = !cmp ? '' : !pv ? '지난 –' : pv.skip ? '지난 생략' : `지난 ${wt(pv.w)}×${pv.r}`;
-      h += `<div class="set ${v.skip ? 'skipped' : ''}">
-        <span class="no">${i + 1}</span>
+      const prevTxt = !cmp ? '' : !pv ? '–' : pv.skip ? '생략' : `${wt(pv.w)}×${pv.r}`;
+      const dn = v.done && !v.skip;
+      h += `<div class="set ${v.skip ? 'skipped' : ''} ${dn ? 'done' : ''}">
+        <span class="no">${dn ? '✓' : i + 1}</span>
         <label class="val"><select class="kg ${v.skip ? '' : kc}" data-a="w" data-id="${id}" data-i="${i}">${kgOpts(v.w)}</select>kg</label>
         <label class="val"><select class="rp ${v.skip ? '' : rc}" data-a="r" data-id="${id}" data-i="${i}">${opts(1, 50, v.r)}</select>회</label>
         <span class="prev">${prevTxt}</span>
+        <button class="donebtn ${dn ? 'on' : ''}" data-a="doneset" data-id="${id}" data-i="${i}">완료</button>
         <button class="skipbtn ${v.skip ? 'on' : ''}" data-a="skipset" data-id="${id}" data-i="${i}">${v.skip ? '생략됨' : '생략'}</button>
       </div>`;
     }
     h += `</div>`;
-    let volTxt = `볼륨 ${vol.toLocaleString()}kg`;
+    let volTxt = `<span class="donecnt">✓ ${doneN}/${r.vals.slice(0, r.sets).filter(v => !v.skip).length}</span> · 볼륨 ${vol.toLocaleString()}kg`;
     if (cmp) {
       let pvol = 0;
       for (let i = 0; i < pr.sets; i++) if (!pr.vals[i].skip) pvol += pr.vals[i].w * pr.vals[i].r;
@@ -423,7 +433,8 @@ app.addEventListener('click', async e => {
   }
   const r = l.ex[id]; if (!r) return;
   if (a === 'skipex') r.skip = !r.skip;
-  if (a === 'skipset') r.vals[i].skip = !r.vals[i].skip;
+  if (a === 'skipset') { r.vals[i].skip = !r.vals[i].skip; if (r.vals[i].skip) r.vals[i].done = false; }
+  if (a === 'doneset') { r.vals[i].done = !r.vals[i].done; if (r.vals[i].done) r.vals[i].skip = false; }
   if (a === 'del') {
     if (!await ask(`'${r.name || '이름 없음'}' 종목을 삭제할까요?\n다음 주 루틴에서도 빠집니다.`)) return;
     l.order = l.order.filter(x => x !== id); delete l.ex[id]; syncTemplate(w, s);

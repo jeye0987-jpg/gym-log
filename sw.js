@@ -1,5 +1,5 @@
 // 오프라인 지원: 항상 최신 파일을 먼저 받아오고(브라우저 캐시 무시), 인터넷이 없으면 저장된 파일 사용
-const CACHE = 'gymlog-v6';
+const CACHE = 'gymlog-v7';
 const FILES = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', e => {
