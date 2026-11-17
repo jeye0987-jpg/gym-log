@@ -102,7 +102,16 @@ th{color:var(--muted);font-weight:600}
 .top .date{font-size:13px;color:var(--muted)}
 .label{width:100%;border:0;background:var(--card);border-radius:12px;padding:12px;margin-bottom:12px;color:var(--accent);font-weight:600}
 
-.card{background:var(--card);border-radius:16px;padding:12px;margin-bottom:12px}
+.card{background:var(--card);border-radius:16px;padding:12px;margin-bottom:12px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.card input{-webkit-user-select:text;user-select:text}
+.grip{flex:none;width:26px;height:40px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;letter-spacing:-3px;touch-action:none;cursor:grab;margin-left:-4px}
+#reo{position:fixed;inset:0;z-index:40;background:var(--bg);touch-action:none;-webkit-user-select:none;user-select:none}
+#reo .rt{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top,0px));text-align:center;font-size:14px;font-weight:700;color:var(--muted)}
+#reo .ri{position:absolute;left:max(16px,calc(50% - 224px));right:max(16px,calc(50% - 224px));background:var(--card);border-radius:12px;
+  display:flex;align-items:center;gap:10px;padding:0 14px;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08);transition:top .15s ease;box-sizing:border-box}
+#reo .ri .n{color:var(--muted);font-size:13px;width:18px}
+#reo .ri.drag{transition:none;box-shadow:0 10px 28px rgba(0,0,0,.25);outline:2px solid var(--accent);z-index:2;transform:scale(1.03)}
+@media (prefers-reduced-motion:reduce){#reo .ri{transition:none}}
 .card.skipped{opacity:.55}
 .head{display:flex;gap:6px;align-items:center}
 .name{flex:1;min-width:0;border:1px solid var(--line);background:transparent;border-radius:10px;padding:9px 10px;font-weight:700}
@@ -154,6 +163,7 @@ th{color:var(--muted);font-weight:600}
 <body>
 <div id="app"></div>
 <div id="toast"></div>
+<div id="reo" hidden><div class="rt">끌어서 놓으면 순서가 바뀝니다</div></div>
 <div id="modal" hidden><div class="box"><div class="msg"></div><div class="btns"><button class="no" id="mNo">취소</button><button class="yes" id="mYes">확인</button></div></div></div>
 <input type="file" id="importFile" accept="application/json,.json" hidden>
 <script>
@@ -341,6 +351,7 @@ function card(w, s, l, id) {
 
   let h = `<div class="card ${r.skip ? 'skipped' : ''}" data-id="${id}">
     <div class="head">
+      <span class="grip" data-grip="${id}" aria-label="끌어서 순서 바꾸기">⋮⋮</span>
       <input class="name" data-a="name" data-id="${id}" value="${esc(r.name)}" placeholder="종목명 입력">
       <select class="setsel" data-a="sets" data-id="${id}">${opts(1, 10, r.sets, '세트')}</select>
       <button class="skipbtn ${r.skip ? 'on' : ''}" data-a="skipex" data-id="${id}">${r.skip ? '생략됨' : '생략'}</button>
@@ -482,6 +493,71 @@ app.addEventListener('input', e => {
   else return;
   clearTimeout(typeT); typeT = setTimeout(() => save(), 400);
 });
+
+/* ---------- 종목 순서 바꾸기 (손잡이를 끌거나 카드를 꾹 눌러서) ---------- */
+let drag = null, pressT = null, pressStart = null;
+function startDrag(id, y) {
+  const {l} = cur(); if (!l) return;
+  const order = l.order.slice(), n = order.length, k = order.indexOf(id); if (k < 0 || n < 2) return;
+  const H = Math.min(54, Math.floor((innerHeight - 110) / n)), G = 6;
+  const listTop = Math.max(56, Math.min(y - k * (H + G) - H / 2, innerHeight - n * (H + G) - 20));
+  const box = document.getElementById('reo');
+  box.querySelectorAll('.ri').forEach(x => x.remove());
+  const els = order.map((oid, i) => {
+    const d = document.createElement('div');
+    d.className = 'ri' + (oid === id ? ' drag' : '');
+    d.style.height = H + 'px';
+    d.innerHTML = `<span class="n">${i + 1}</span><span>${esc(l.ex[oid].name || '(이름 없음)')}</span>`;
+    box.appendChild(d); return d;
+  });
+  box.hidden = false;
+  if (navigator.vibrate) try { navigator.vibrate(15); } catch (_) {}
+  drag = {id, order, els, k, to: k, H: H + G, listTop, grab: y - (listTop + k * (H + G))};
+  layoutDrag(y);
+}
+function layoutDrag(y) {
+  const d = drag, n = d.order.length;
+  const top = y - d.grab;
+  d.to = Math.max(0, Math.min(n - 1, Math.round((top - d.listTop) / d.H)));
+  let slot = 0;
+  d.order.forEach((oid, i) => {
+    const el = d.els[i];
+    if (i === d.k) { el.style.top = top + 'px'; return; }
+    if (slot === d.to) slot++;
+    el.style.top = (d.listTop + slot * d.H) + 'px';
+    el.querySelector('.n').textContent = slot + 1;
+    slot++;
+  });
+  d.els[d.k].querySelector('.n').textContent = d.to + 1;
+}
+function endDrag(apply) {
+  const d = drag; drag = null;
+  document.getElementById('reo').hidden = true;
+  if (!d || !apply || d.to === d.k) return;
+  const {w, s, l} = cur(); if (!l) return;
+  const o = d.order.slice(); o.splice(d.k, 1); o.splice(d.to, 0, d.id);
+  l.order = o; syncTemplate(w, s); save(); render();
+  toast('순서를 바꿨어요');
+}
+function cancelPress() { clearTimeout(pressT); pressT = null; pressStart = null; }
+app.addEventListener('pointerdown', e => {
+  if (typeof view.s !== 'number' || drag) return;
+  const g = e.target.closest('[data-grip]');
+  if (g) { e.preventDefault(); return startDrag(g.dataset.grip, e.clientY); }
+  const card = e.target.closest('.card[data-id]');
+  if (!card || e.target.closest('input,select,button,textarea,label')) return;
+  pressStart = {x: e.clientX, y: e.clientY};
+  pressT = setTimeout(() => { const y = pressStart.y; cancelPress(); startDrag(card.dataset.id, y); }, 450);
+});
+window.addEventListener('pointermove', e => {
+  if (drag) { e.preventDefault(); return layoutDrag(e.clientY); }
+  if (pressStart && Math.hypot(e.clientX - pressStart.x, e.clientY - pressStart.y) > 8) cancelPress();
+  if (pressStart) pressStart.y = e.clientY;
+}, {passive: false});
+window.addEventListener('pointerup', () => { cancelPress(); if (drag) endDrag(true); });
+window.addEventListener('pointercancel', () => { cancelPress(); if (drag) endDrag(false); });
+document.addEventListener('touchmove', e => { if (drag) e.preventDefault(); }, {passive: false});
+document.addEventListener('contextmenu', e => { if (drag || (e.target.closest('.card') && !e.target.closest('input'))) e.preventDefault(); });
 
 /* ---------- 백업 ---------- */
 function doExport() {
